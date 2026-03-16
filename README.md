@@ -14,9 +14,16 @@
 ## 구성
 
 - `docs/implementation-cases.md`: 요구사항별 구현 케이스, 장단점, 오픈소스 사례, 적용 판단 기준
+- `docs/feature-and-technology-guide.md`: 기능 목록, 기술 후보, 선택 이유, 코드에서의 사용 위치
 - `src/CustomShellWebView2Demo`: 바로 열어볼 수 있는 WinForms 샘플 프로젝트
 - `LICENSE`: MIT License
 - `CONTRIBUTING.md`: 간단한 협업 가이드
+
+## 문서 읽기 순서
+
+- 먼저 `docs/feature-and-technology-guide.md`
+- 다음으로 `docs/implementation-cases.md`
+- 마지막으로 `src/CustomShellWebView2Demo` 코드 확인
 
 ## 샘플 기본 전략
 
@@ -30,12 +37,14 @@
 ## 실행
 
 ```powershell
-cd C:\Users\user\Documents\Playground\src\CustomShellWebView2Demo
-dotnet restore
-dotnet build
+cd C:\Users\user\Documents\Playground
+dotnet restore .\WebView2CustomShellDemo.sln
+dotnet build .\WebView2CustomShellDemo.sln
 ```
 
-Visual Studio에서 [`src/CustomShellWebView2Demo/CustomShellWebView2Demo.csproj`](C:\Users\user\Documents\Playground\src\CustomShellWebView2Demo\CustomShellWebView2Demo.csproj)를 열어도 됩니다.
+Visual Studio에서는 먼저 [WebView2CustomShellDemo.sln](C:\Users\user\Documents\Playground\WebView2CustomShellDemo.sln)을 열면 됩니다.
+
+프로젝트 파일만 직접 열고 싶다면 [CustomShellWebView2Demo.csproj](C:\Users\user\Documents\Playground\src\CustomShellWebView2Demo\CustomShellWebView2Demo.csproj)를 열어도 됩니다.
 
 ## 참고 자료
 

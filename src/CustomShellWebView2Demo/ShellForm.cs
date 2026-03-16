@@ -2,6 +2,7 @@ using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 using System;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 
 namespace CustomShellWebView2Demo
@@ -11,7 +12,23 @@ namespace CustomShellWebView2Demo
         private const int CornerRadius = 8;
         private const int ResizeBorder = 8;
         private const int TitleBarHeight = 40;
+        private const int VisibleBorderThickness = 2;
+        private const int InnerCornerRadius = CornerRadius - VisibleBorderThickness;
+        private static readonly Color VisibleBorderColor = Color.FromArgb(96, 118, 146);
+        private static readonly Color ContentBackColor = Color.FromArgb(255, 255, 255);
+        private static readonly Color[] DebugBorderColors =
+        {
+            Color.FromArgb(231, 76, 60),   // top-left corner
+            Color.FromArgb(241, 196, 15),  // top
+            Color.FromArgb(46, 204, 113),  // top-right corner
+            Color.FromArgb(52, 152, 219),  // right
+            Color.FromArgb(155, 89, 182),  // bottom-right corner
+            Color.FromArgb(230, 126, 34),  // bottom
+            Color.FromArgb(26, 188, 156),  // bottom-left corner
+            Color.FromArgb(236, 240, 241)  // left
+        };
 
+        private readonly Panel _chromeHost;
         private readonly Panel _titleBar;
         private readonly Panel _contentHost;
         private readonly PictureBox _iconBox;
@@ -25,7 +42,7 @@ namespace CustomShellWebView2Demo
         {
             SuspendLayout();
 
-            BackColor = Color.FromArgb(250, 250, 252);
+            BackColor = VisibleBorderColor;
             ForeColor = Color.FromArgb(35, 39, 46);
             Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
             FormBorderStyle = FormBorderStyle.None;
@@ -33,13 +50,21 @@ namespace CustomShellWebView2Demo
             Size = new Size(1280, 820);
             StartPosition = FormStartPosition.CenterScreen;
             Text = "WebView2 Custom Shell";
-            Padding = new Padding(1);
+            DoubleBuffered = true;
+            Padding = new Padding(VisibleBorderThickness);
+
+            _chromeHost = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = ContentBackColor,
+                Padding = new Padding(0)
+            };
 
             _titleBar = new Panel
             {
                 Dock = DockStyle.Top,
                 Height = TitleBarHeight,
-                BackColor = Color.FromArgb(28, 38, 58)
+                BackColor = Color.FromArgb(20, 34, 56)
             };
 
             _iconBox = new PictureBox
@@ -68,7 +93,7 @@ namespace CustomShellWebView2Demo
             _contentHost = new Panel
             {
                 Dock = DockStyle.Fill,
-                BackColor = Color.White,
+                BackColor = ContentBackColor,
                 Padding = new Padding(0)
             };
 
@@ -91,9 +116,10 @@ namespace CustomShellWebView2Demo
             _titleBar.Controls.Add(_minButton);
             _titleBar.Controls.Add(_iconBox);
 
+            _chromeHost.Controls.Add(_contentHost);
+            _chromeHost.Controls.Add(_titleBar);
             _contentHost.Controls.Add(_webView);
-            Controls.Add(_contentHost);
-            Controls.Add(_titleBar);
+            Controls.Add(_chromeHost);
 
             Resize += (_, __) => ApplyRoundedRegion();
             Shown += async (_, __) => await InitializeWebViewAsync();
@@ -135,6 +161,56 @@ namespace CustomShellWebView2Demo
             }
 
             base.WndProc(ref m);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+
+            if (WindowState == FormWindowState.Maximized)
+            {
+                return;
+            }
+
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+            int inset = Math.Max(1, VisibleBorderThickness);
+            int guideThickness = 2;
+            int diameter = CornerRadius * 2;
+            Rectangle guideBounds = new Rectangle(
+                inset,
+                inset,
+                Width - (inset * 2) - 1,
+                Height - (inset * 2) - 1);
+
+            int left = guideBounds.Left;
+            int top = guideBounds.Top;
+            int right = guideBounds.Right;
+            int bottom = guideBounds.Bottom;
+            int arcRight = right - diameter;
+            int arcBottom = bottom - diameter;
+            int lineStart = left + CornerRadius;
+            int lineEndX = right - CornerRadius;
+            int lineEndY = bottom - CornerRadius;
+
+            using (Pen topLeftPen = CreateGuidePen(DebugBorderColors[0], guideThickness))
+            using (Pen topPen = CreateGuidePen(DebugBorderColors[1], guideThickness))
+            using (Pen topRightPen = CreateGuidePen(DebugBorderColors[2], guideThickness))
+            using (Pen rightPen = CreateGuidePen(DebugBorderColors[3], guideThickness))
+            using (Pen bottomRightPen = CreateGuidePen(DebugBorderColors[4], guideThickness))
+            using (Pen bottomPen = CreateGuidePen(DebugBorderColors[5], guideThickness))
+            using (Pen bottomLeftPen = CreateGuidePen(DebugBorderColors[6], guideThickness))
+            using (Pen leftPen = CreateGuidePen(DebugBorderColors[7], guideThickness))
+            {
+                e.Graphics.DrawArc(topLeftPen, left, top, diameter, diameter, 180, 90);
+                e.Graphics.DrawLine(topPen, lineStart, top, lineEndX, top);
+                e.Graphics.DrawArc(topRightPen, arcRight, top, diameter, diameter, 270, 90);
+                e.Graphics.DrawLine(rightPen, right, top + CornerRadius, right, lineEndY);
+                e.Graphics.DrawArc(bottomRightPen, arcRight, arcBottom, diameter, diameter, 0, 90);
+                e.Graphics.DrawLine(bottomPen, lineEndX, bottom, lineStart, bottom);
+                e.Graphics.DrawArc(bottomLeftPen, left, arcBottom, diameter, diameter, 90, 90);
+                e.Graphics.DrawLine(leftPen, left, lineEndY, left, top + CornerRadius);
+            }
         }
 
         private async System.Threading.Tasks.Task InitializeWebViewAsync()
@@ -197,10 +273,13 @@ namespace CustomShellWebView2Demo
             {
                 NativeMethods.SetWindowRgn(Handle, IntPtr.Zero, true);
                 Padding = new Padding(0);
+                BackColor = ContentBackColor;
+                _chromeHost.Region = null;
                 return;
             }
 
-            Padding = new Padding(1);
+            BackColor = VisibleBorderColor;
+            Padding = new Padding(VisibleBorderThickness);
             IntPtr regionHandle = NativeMethods.CreateRoundRectRgn(
                 0,
                 0,
@@ -209,6 +288,21 @@ namespace CustomShellWebView2Demo
                 CornerRadius * 2,
                 CornerRadius * 2);
             NativeMethods.SetWindowRgn(Handle, regionHandle, true);
+            ApplyChromeRegion();
+        }
+
+        private void ApplyChromeRegion()
+        {
+            if (_chromeHost.Width <= 0 || _chromeHost.Height <= 0)
+            {
+                return;
+            }
+
+            Rectangle chromeRect = new Rectangle(0, 0, _chromeHost.Width, _chromeHost.Height);
+            using (GraphicsPath chromePath = CreateRoundedPath(chromeRect, InnerCornerRadius))
+            {
+                _chromeHost.Region = new Region(chromePath);
+            }
         }
 
         private int GetResizeHit(Point point)
@@ -233,6 +327,33 @@ namespace CustomShellWebView2Demo
             if (bottom) return NativeMethods.HTBOTTOM;
 
             return NativeMethods.HTCLIENT;
+        }
+
+        private static GraphicsPath CreateRoundedPath(Rectangle bounds, int radius)
+        {
+            int safeRadius = Math.Max(1, radius);
+            int diameter = safeRadius * 2;
+            GraphicsPath path = new GraphicsPath();
+            int right = Math.Max(bounds.X, bounds.Right - diameter);
+            int bottom = Math.Max(bounds.Y, bounds.Bottom - diameter);
+
+            path.AddArc(bounds.X, bounds.Y, diameter, diameter, 180, 90);
+            path.AddArc(right, bounds.Y, diameter, diameter, 270, 90);
+            path.AddArc(right, bottom, diameter, diameter, 0, 90);
+            path.AddArc(bounds.X, bottom, diameter, diameter, 90, 90);
+            path.CloseFigure();
+
+            return path;
+        }
+
+        private static Pen CreateGuidePen(Color color, int thickness)
+        {
+            Pen pen = new Pen(color, thickness)
+            {
+                Alignment = PenAlignment.Center,
+                LineJoin = LineJoin.Round
+            };
+            return pen;
         }
 
         private void WmGetMinMaxInfo(IntPtr hwnd, IntPtr lParam)
